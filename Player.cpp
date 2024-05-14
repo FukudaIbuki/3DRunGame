@@ -1,121 +1,84 @@
 #include "Player.h"
-#include "Engine/Model.h"
-#include "Engine/Input.h"
-#include "Engine/Debug.h"
-#include "Stage.h"
-
-namespace
-{
-	const float PLAYER_MOVE_SPEED{ 1.0f };
-}
+#include"Engine/Model.h"
+#include"Engine/Input.h"
+#include"Engine/Debug.h"
 
 Player::Player(GameObject* parent)
-	:GameObject(parent, "Player"),
-	hModel_(-1), speed_(PLAYER_MOVE_SPEED), pStage_(nullptr)
+	:GameObject(parent, "Player"), hModel_(-1), moveDir_(MNONE), cdtimer_(nullptr)
 {
 }
 
 void Player::Initialize()
 {
+	cdtimer_ = new CDTimer(this, DTIME);
+	cdtimer_->StopTimer();
 	hModel_ = Model::Load("Player.fbx");
 	assert(hModel_ >= 0);
-	transform_.position_.x = 0.5;
-	transform_.position_.z = 1.5;
-	pStage_ = (Stage*)FindObject("Stage");
+
+}
+
+void Player::GetInputData()
+{
+	//moveDir_ = MNONE;
+
+	if (Input::IsKeyDown(DIK_LEFT) || Input::IsKeyDown(DIK_D))
+	{
+
+		moveDir_ = MLEFT;
+		cdtimer_->ResetTimer();
+		cdtimer_->StartTimer();
+		V[0] = XMLoadFloat3(&transform_.position_);
+		V[1] = moveVec[moveDir_];
+	}
+	if (Input::IsKeyDown(DIK_RIGHT) || Input::IsKeyDown(DIK_A))
+	{
+		moveDir_ = MRIGHT;
+		cdtimer_->ResetTimer();
+		cdtimer_->StartTimer();
+		V[0] = XMLoadFloat3(&transform_.position_);
+		V[1] = moveVec[moveDir_];
+	}
 }
 
 void Player::Update()
 {
-	enum Dir
+	cdtimer_->Update();//ã‚«ã‚¦ãƒ³ãƒˆãƒ€ã‚¦ãƒ³
+
+	float lerpRate = 1.0f - cdtimer_->GetTime() / DTIME;
+	Debug::Log(cdtimer_->IsTimeRun(), true);
+	GetInputData();
+	if (moveDir_ == MNONE)
+		return;
+
+	if (cdtimer_->IsTimeRun())
 	{
-		UP, LEFT, DOWN, RIGHT, NONE,
-	};
-	int moveDir = Dir::NONE;
+		float lerpRate = 1.0f - cdtimer_->GetTime() / DTIME;
+		XMVECTOR pos = XMVectorLerp(V[0], V[1], lerpRate);
+		XMStoreFloat3(&transform_.position_, pos);
 
-	XMVECTOR vFront = { 0,0,1,0 };
-	XMVECTOR move{ 0,0,0,0 };
+		float rotAngle = 90.0 * sin(lerpRate * XM_PIDIV2);
 
-	//if (Input::IsKey(DIK_UP))
-	//{
-	//	move = XMVECTOR{ 0,0,1,0 };
-	//	//moveDir = Dir::UP;
-	//}
-	if (Input::IsKey(DIK_LEFT))
+		if (XMVectorGetX(V[1]) < XMVectorGetX(V[0]))
+		{
+			rotAngle = -rotAngle;
+		}
+		transform_.rotate_.y = rotAngle;
+	}
+
+	if (cdtimer_->GetTime() <= 0)
 	{
-		move = XMVECTOR{ -1,0,0,0 };
-		//moveDir = Dir::LEFT;
+		//XMVECTOR pos = XMLoadFloat3(&transform_.position_);
+		//pos = pos + moveVec[moveDir_];
+		//XMStoreFloat3(&transform_.position_, pos);
+		moveDir_ = MNONE;
+		cdtimer_->StopTimer();
 	}
-	//if (Input::IsKey(DIK_DOWN))
-	//{
-	//	move = XMVECTOR{ 0,0,-1,0 };
-	//	//moveDir = Dir::DOWN;
-	//}
-	if (Input::IsKey(DIK_RIGHT))
-	{
-		move = XMVECTOR{ 1,0,0,0 };
-		//moveDir = Dir::RIGHT;
-	}
-	XMVECTOR pos = XMLoadFloat3(&(transform_.position_));
-	XMVECTOR posTmp = XMVectorZero();//ƒ[ƒƒxƒNƒgƒ‹‚Å‰Šú‰»
-	posTmp = pos + speed_ * move;
-
-	//float rotAngle[5]{ 0,-90,180,90,0 };
-	//transform_.rotate_.y = rotAngle[moveDir];
-
-	int tx, ty;
-	tx = (int)(XMVectorGetX(posTmp) + 1.0f);
-	ty = pStage_->GetStageWidth() - (int)(XMVectorGetZ(posTmp) + 1.0f);
-	if (!(pStage_->IsWall(tx, ty)))
-	{
-		pos = posTmp;
-	}
-
-	Debug::Log("(iX, iZ)=");
-	Debug::Log(tx);
-	Debug::Log(",");
-	Debug::Log(ty);
-	Debug::Log(" : ");
-	Debug::Log(pStage_->IsWall(tx, ty), true);
-
-	if (!XMVector3Equal(move, XMVectorZero())) {
-		XMStoreFloat3(&(transform_.position_), pos);
-
-		float angle = atan2(XMVectorGetX(move), XMVectorGetZ(move));
-
-		Debug::Log("=>");
-		Debug::Log(XMConvertToDegrees(angle), true);
-
-		transform_.rotate_.y = XMConvertToDegrees(-angle);
-	}
-	//posTmp.x posTmp.z => int tx, ty :”z—ñ‚ÌƒCƒ“ƒfƒbƒNƒX
-	//‰¼‚Émap‚Ì”z—ñ‚ðmap[][]‚Æ‚·‚é
-	//ˆÚ“®æ‚ªƒtƒƒA(STAGE_OBJ::FLOOR => 0)‚¾‚Á‚½‚ç“®‚­
-	//if (map[ty][tx] == STAGE_OBJ::FLOOR) {
-	//	pos = posTemp;
-	//}
-
-	if (!(pStage_->IsWall(tx, ty)))
-	{
-		pos = posTmp;
-	}
-	//else
-	//{
-	//	hpCrr_ = hpCrr_ - 2;
-	//	if (hpCrr_ < 0) hpCrr_ = 0;
-	//}
-
-	if (!XMVector3Equal(move, XMVectorZero())) {
-		XMStoreFloat3(&(transform_.position_), pos);
-
-		float retangle = 0.0;
-		retangle = atan2(XMVectorGetX(move), XMVectorGetZ(move));
-		transform_.rotate_.y = XMConvertToDegrees(retangle);
-	}
+	//å·¦å³ã‚­ãƒ¼(A,D)ã§å·¦å³ï¼ˆxåº§æ¨™ã§ï¼‰5.0ç§»å‹•ã™ã‚‹
 }
 
 void Player::Draw()
 {
-	Model::SetTransform(hModel_, transform_);
+	Model::SetTransform(hModel_, this->transform_);
 	Model::Draw(hModel_);
 }
 
