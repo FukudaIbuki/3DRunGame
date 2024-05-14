@@ -1,7 +1,18 @@
 #pragma once
 #include "Engine/GameObject.h"
+#include "CDTimer.h"
 
 class Stage;
+
+namespace
+{
+	enum MOVEDIR
+	{
+		MLEFT, MRIGHT, MNONE, MMAX,
+	};
+	XMVECTOR moveVec[MMAX] = { {2,0,0}, {-2,0,0}, { 0,0,0 } };
+	const float DTIME{ 1.0 };
+}
 
 class Player :
     public GameObject
@@ -9,23 +20,24 @@ class Player :
 	int hModel_;
 	float speed_;
 	Stage* pStage_;
-	//PacRect rec;
-
+	void GetInputData();
+	MOVEDIR moveDir_;
+	XMVECTOR V[2];
 public:
-	//ƒRƒ“ƒXƒgƒ‰ƒNƒ^
-	//ˆø”Fparent  eƒIƒuƒWƒFƒNƒgiSceneManagerj
+	//ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿
+	//å¼•æ•°ï¼šparent  è¦ªã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆï¼ˆSceneManagerï¼‰
 	Player(GameObject* parent);
 
-	//‰Šú‰»
+	//åˆæœŸåŒ–
 	void Initialize() override;
 
-	//XV
+	//æ›´æ–°
 	void Update() override;
 
-	//•`‰æ
+	//æç”»
 	void Draw() override;
 
-	//ŠJ•ú
+	//é–‹æ”¾
 	void Release() override;
+	CDTimer* cdtimer_;
 };
-
